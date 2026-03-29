@@ -67,18 +67,20 @@ app.use('/api/upload', uploadRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 
-// Debug: listar rutas registradas
-app._router.stack.forEach((middleware) => {
-  if (middleware.route) {
-    console.log('ROUTE:', middleware.route.path)
-  } else if (middleware.name === 'router') {
-    middleware.handle.stack.forEach((handler) => {
-      if (handler.route) {
-        console.log('ROUTER:', handler.route.path)
-      }
-    })
-  }
-})
+// Debug: listar rutas registradas (solo en desarrollo)
+if (process.env.NODE_ENV !== 'production') {
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      console.log('ROUTE:', middleware.route.path)
+    } else if (middleware.name === 'router') {
+      middleware.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          console.log('ROUTER:', handler.route.path)
+        }
+      })
+    }
+  })
+}
 
 // 404 handler
 app.use((req, res) => {
