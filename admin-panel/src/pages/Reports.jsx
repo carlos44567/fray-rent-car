@@ -1,7 +1,40 @@
 import { useState, useEffect } from 'react'
 import { getReservationsReport, getClientsReport, getVehiclesReport } from '../services/api'
+import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { FileText, Download, Calendar, Filter, Car, Users, CalendarCheck } from 'lucide-react'
+
+// Función para exportar a PDF
+const exportToPDF = async (reportType, filters = {}) => {
+  try {
+    const params = {}
+
+    if (reportType === 'reservations') {
+      if (filters.startDate) params.startDate = filters.startDate
+      if (filters.endDate) params.endDate = filters.endDate
+      if (filters.status) params.status = filters.status
+    } else if (reportType === 'vehicles') {
+      if (filters.category) params.category = filters.category
+      if (filters.isActive) params.isActive = filters.isActive
+    }
+
+    const response = await api.get(`/dashboard/reports/${reportType}/pdf`, {
+      params,
+      responseType: 'blob'
+    })
+
+    const blob = new Blob([response.data], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `reporte_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error('Error exportando PDF:', err)
+    alert('Error al descargar PDF')
+  }
+}
 
 // Función para exportar a CSV
 const exportToCSV = (data, filename) => {
@@ -13,7 +46,7 @@ const exportToCSV = (data, filename) => {
   const headers = Object.keys(data[0])
   const csvContent = [
     headers.join(','),
-    ...data.map(row => 
+    ...data.map(row =>
       headers.map(header => {
         const value = row[header]
         // Escapar comas y comillas
@@ -119,7 +152,7 @@ function Reports() {
             <option value="">Todos los estados</option>
             <option value="pending">Pendiente</option>
             <option value="confirmed">Confirmada</option>
-            <option value="completed">Completada</option>
+            <option value="finished">Completada</option>
             <option value="cancelled">Cancelada</option>
           </select>
         </div>
@@ -212,14 +245,24 @@ function Reports() {
           <h2 className="text-2xl font-bold text-luxuryText">Reportes</h2>
           <p className="text-sm text-luxuryMuted">Consulta y exporta datos del sistema.</p>
         </div>
-        <button
-          onClick={handleExport}
-          disabled={!data || data.length === 0}
-          className="gold-btn text-sm flex items-center gap-2 disabled:opacity-50"
-        >
-          <Download className="w-4 h-4" />
-          Exportar CSV
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => exportToPDF(activeTab, filters)}
+            disabled={!data || data.length === 0}
+            className="gold-btn text-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            Exportar PDF
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={!data || data.length === 0}
+            className="ghost-btn text-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            Exportar CSV
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

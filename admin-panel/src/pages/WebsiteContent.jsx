@@ -59,19 +59,35 @@ function WebsiteContent() {
     try {
       setSaving(true)
       const formattedData = {}
-      
-      for (const [key, data] of Object.entries(sectionData)) {
-        formattedData[key] = { value: data.value }
+
+      if (!sectionData || typeof sectionData !== 'object') {
+        setMessage({ type: 'error', text: `No hay datos para guardar en ${sectionName}` })
+        setSaving(false)
+        return
       }
-      
+
+      for (const [key, data] of Object.entries(sectionData)) {
+        const value = data?.value
+        if (value !== undefined && value !== null && String(value).trim() !== '') {
+          formattedData[key] = { value: String(value) }
+        }
+      }
+
+      if (Object.keys(formattedData).length === 0) {
+        setMessage({ type: 'error', text: 'No hay campos con valor para guardar' })
+        setSaving(false)
+        return
+      }
+
       await updateSectionContent({
         section: sectionName,
         contents: formattedData
       })
-      
+
       setMessage({ type: 'success', text: `${sectionName} guardado correctamente` })
       setTimeout(() => setMessage(null), 3000)
     } catch (error) {
+      console.error('Error guardando sección:', error)
       setMessage({ type: 'error', text: 'Error al guardar' })
     } finally {
       setSaving(false)
@@ -250,15 +266,21 @@ function WebsiteContent() {
             />
           </div>
         </div>
-        
-        <button
-          onClick={() => saveSection('hero', content.hero)}
-          disabled={saving}
-          className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Guardando...' : 'Guardar Hero'}
-        </button>
+
+        {isOwner ? (
+          <button
+            onClick={() => saveSection('hero', content.hero)}
+            disabled={saving}
+            className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Guardando...' : 'Guardar Hero'}
+          </button>
+        ) : (
+          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-sm text-yellow-400">Solo el owner puede editar el contenido web</p>
+          </div>
+        )}
       </section>
 
       {/* SECCIÓN: BOOKING */}
@@ -324,15 +346,21 @@ function WebsiteContent() {
             />
           </div>
         </div>
-        
-        <button
-          onClick={() => saveSection('booking', content.booking)}
-          disabled={saving}
-          className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Guardando...' : 'Guardar Booking'}
-        </button>
+
+        {isOwner ? (
+          <button
+            onClick={() => saveSection('booking', content.booking)}
+            disabled={saving}
+            className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Guardando...' : 'Guardar Booking'}
+          </button>
+        ) : (
+          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-sm text-yellow-400">Solo el owner puede editar el contenido web</p>
+          </div>
+        )}
       </section>
 
       {/* SECCIÓN: FLEET - Vehículos Destacados */}
@@ -368,15 +396,21 @@ function WebsiteContent() {
             </div>
           ))}
         </div>
-        
-        <button
-          onClick={saveFeaturedVehicles}
-          disabled={saving}
-          className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Guardando...' : 'Guardar Flota Destacada'}
-        </button>
+
+        {isOwner ? (
+          <button
+            onClick={saveFeaturedVehicles}
+            disabled={saving}
+            className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Guardando...' : 'Guardar Flota Destacada'}
+          </button>
+        ) : (
+          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-sm text-yellow-400">Solo el owner puede editar el contenido web</p>
+          </div>
+        )}
       </section>
 
       {/* SECCIÓN: TRUST SERVICES */}
@@ -437,15 +471,21 @@ function WebsiteContent() {
             </div>
           </div>
         </div>
-        
-        <button
-          onClick={() => saveSection('trust', content.trust)}
-          disabled={saving}
-          className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Guardando...' : 'Guardar Servicios'}
-        </button>
+
+        {isOwner ? (
+          <button
+            onClick={() => saveSection('trust', content.trust)}
+            disabled={saving}
+            className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Guardando...' : 'Guardar Servicios'}
+          </button>
+        ) : (
+          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-sm text-yellow-400">Solo el owner puede editar el contenido web</p>
+          </div>
+        )}
       </section>
 
       {/* SECCIÓN: CONTACT */}
@@ -526,15 +566,21 @@ function WebsiteContent() {
             />
           </div>
         </div>
-        
-        <button
-          onClick={() => saveSection('contact', content.contact)}
-          disabled={saving}
-          className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Guardando...' : 'Guardar Contact'}
-        </button>
+
+        {isOwner ? (
+          <button
+            onClick={() => saveSection('contact', content.contact)}
+            disabled={saving}
+            className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Guardando...' : 'Guardar Contact'}
+          </button>
+        ) : (
+          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-sm text-yellow-400">Solo el owner puede editar el contenido web</p>
+          </div>
+        )}
       </section>
 
       {/* SECCIÓN: FOOTER */}
@@ -591,15 +637,21 @@ function WebsiteContent() {
             />
           </div>
         </div>
-        
-        <button
-          onClick={() => saveSection('footer', content.footer)}
-          disabled={saving}
-          className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Guardando...' : 'Guardar Footer'}
-        </button>
+
+        {isOwner ? (
+          <button
+            onClick={() => saveSection('footer', content.footer)}
+            disabled={saving}
+            className="mt-4 flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Guardando...' : 'Guardar Footer'}
+          </button>
+        ) : (
+          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-sm text-yellow-400">Solo el owner puede editar el contenido web</p>
+          </div>
+        )}
       </section>
     </div>
   )

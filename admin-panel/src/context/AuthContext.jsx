@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
 
       try {
         const response = await getMe()
-        setUser(response.data.user)
+        setUser(response.data)
       } catch (err) {
         console.error('Session check failed:', err)
         localStorage.removeItem('token')

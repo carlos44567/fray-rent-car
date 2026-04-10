@@ -26,38 +26,38 @@ function Dashboard() {
 
         // Actualizar estadísticas con datos reales
         setStats([
-          { 
-            id: 1, 
-            title: 'Total Reservas', 
-            value: m.reservations.total.toString(), 
-            subtitle: `${m.reservations.active} activas, ${m.reservations.pending} pendientes`, 
-            tone: 'positive' 
+          {
+            id: 1,
+            title: 'Total Reservas',
+            value: String(m.reservations?.total || 0),
+            subtitle: `${m.reservations?.active || 0} activas, ${m.reservations?.pending || 0} pendientes`,
+            tone: 'positive'
           },
-          { 
-            id: 2, 
-            title: 'Vehículos Activos', 
-            value: m.vehicles.active.toString(), 
-            subtitle: `de ${m.vehicles.total} en total (${m.vehicles.featured} destacados)`, 
-            tone: m.vehicles.active > 0 ? 'positive' : 'neutral' 
+          {
+            id: 2,
+            title: 'Vehículos Activos',
+            value: String(m.vehicles?.active || 0),
+            subtitle: `de ${m.vehicles?.total || 0} en total (${m.vehicles?.featured || 0} destacados)`,
+            tone: m.vehicles?.active > 0 ? 'positive' : 'neutral'
           },
-          { 
-            id: 3, 
-            title: 'Clientes', 
-            value: m.clients.total.toString(), 
-            subtitle: 'registrados', 
-            tone: 'neutral' 
+          {
+            id: 3,
+            title: 'Clientes',
+            value: String(m.clients?.total || 0),
+            subtitle: 'registrados',
+            tone: 'neutral'
           },
-          { 
-            id: 4, 
-            title: 'Ingresos Totales', 
-            value: `${m.income.total.toFixed(0)}€`, 
-            subtitle: `${m.reservations.completed} completadas`, 
-            tone: m.income.total > 0 ? 'positive' : 'neutral' 
+          {
+            id: 4,
+            title: 'Ingresos Totales',
+            value: `${(m.income?.total || 0).toFixed(0)}€`,
+            subtitle: `${m.reservations?.completed || 0} completadas`,
+            tone: m.income?.total > 0 ? 'positive' : 'neutral'
           }
         ])
 
         // Actividad reciente
-        const activity = m.recentReservations.map(r => {
+        const activity = (m.recentReservations || []).map(r => {
           return `Reserva #${r.id}: ${r.client} - ${r.vehicle} (${r.status})`
         })
         setRecentActivity(activity.length > 0 ? activity : ['No hay actividad reciente'])
@@ -73,10 +73,10 @@ function Dashboard() {
   }, [])
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-luxuryText">Dashboard</h2>
-        <p className="text-sm text-luxuryMuted">
+        <h2 className="text-xl sm:text-2xl font-bold text-luxuryText">Dashboard</h2>
+        <p className="text-xs sm:text-sm text-luxuryMuted">
           Bienvenido, {user?.name || user?.email}. Resumen general de la operación.
         </p>
       </div>

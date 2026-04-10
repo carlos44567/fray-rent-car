@@ -1,7 +1,9 @@
 import axios from 'axios'
-
+// Usa VITE_API_URL para distinguir entre local y producción
+// Local: http://localhost:5001/api
+// Producción: https://api.fray-rent-car.com/api
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'

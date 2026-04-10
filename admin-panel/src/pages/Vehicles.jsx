@@ -25,6 +25,8 @@ function Vehicles() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  // Archivo de imagen seleccionado (para auto-upload tras crear vehículo)
+  const [selectedImageFile, setSelectedImageFile] = useState(null)
 
   const isOwner = user?.role === 'owner'
   const isWorker = user?.role === 'worker'
@@ -35,6 +37,10 @@ function Vehicles() {
       const response = await getVehicles()
       setVehicles(response.data)
       setError(null)
+      // Diagnóstico: verificar image_url de cada vehículo
+      response.data.forEach(v => {
+        console.log(`[Vehicles] ID ${v.id}: ${v.brand} ${v.model} | image_url:`, v.image_url)
+      })
     } catch (err) {
       console.error('Error fetching vehicles:', err)
       setError('Error al cargar los vehículos')
@@ -65,18 +71,32 @@ function Vehicles() {
 
     setIsSubmitting(true)
 
+    // No enviar image_url si es base64 (data:image/...) — la imagen debe subirse por separado
+    const { image_url, ...restData } = formData
     const data = {
-      ...formData,
+      ...restData,
       year: parseInt(formData.year),
       price_per_day: parseFloat(formData.price_per_day),
       sort_order: parseInt(formData.sort_order) || 0
+    }
+
+    // Si image_url es una URL real (no base64), enviarla
+    if (image_url && !image_url.startsWith('data:')) {
+      data.image_url = image_url
     }
 
     try {
       if (editingVehicle) {
         await updateVehicle(editingVehicle.id, data)
       } else {
-        await createVehicle(data)
+        const response = await createVehicle(data)
+        // Auto-upload image si se seleccionó uno al crear vehículo
+        if (selectedImageFile && response.data?.id) {
+          const uploadFormData = new FormData()
+          uploadFormData.append('image', selectedImageFile)
+          uploadFormData.append('vehicleId', response.data.id)
+          await uploadVehicleImage(response.data.id, uploadFormData)
+        }
       }
       await fetchVehicles()
       resetForm()
@@ -90,6 +110,7 @@ function Vehicles() {
 
   const handleEdit = (vehicle) => {
     setEditingVehicle(vehicle)
+    setSelectedImageFile(null)
     setFormData({
       brand: vehicle.brand,
       model: vehicle.model,
@@ -167,6 +188,7 @@ function Vehicles() {
     })
     setEditingVehicle(null)
     setShowForm(false)
+    setSelectedImageFile(null)
   }
 
   // Manejar cambio de archivo de imagen
@@ -211,7 +233,9 @@ function Vehicles() {
         setUploadingImage(false)
       }
     } else {
-      // Si no hay vehículo, crear URL temporal para preview
+      // Si no hay vehículo, guardar archivo para auto-upload tras crear
+      setSelectedImageFile(file)
+      // URL temporal para preview
       const reader = new FileReader()
       reader.onload = (e) => {
         setFormData(prev => ({ ...prev, image_url: e.target.result }))
@@ -220,20 +244,20 @@ function Vehicles() {
     }
   }
 
-  // Helper para normalizar URLs de imágenes - CORREGIDO
+  // Helper para normalizar URLs de imágenes
   const getVehicleImageUrl = (url) => {
-    if (!url) return null
+    if (!url || url === '') return null
     // Si ya es URL absoluta, retornarla directamente
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url
     }
     // Si comienza con /uploads (ruta relativa del backend)
     if (url.startsWith('/uploads')) {
-      const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001'
+      const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5001/api').replace(/\/api$/, '')
       return `${API_URL}${url}`
     }
     // Para cualquier otra ruta relativa
-    const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001'
+    const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5001/api').replace(/\/api$/, '')
     return `${API_URL}/${url}`
   }
 
@@ -282,7 +306,14 @@ function Vehicles() {
           </button>
           {isOwner && (
             <button 
-              onClick={() => setShowForm(!showForm)}
+              onClick={() => {
+                if (showForm) {
+                  resetForm()
+                } else {
+                  setSelectedImageFile(null)
+                  setShowForm(true)
+                }
+              }}
               className="gold-btn text-sm flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
