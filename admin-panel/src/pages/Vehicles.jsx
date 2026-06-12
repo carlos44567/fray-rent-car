@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getVehicles, createVehicle, updateVehicle, deleteVehicle, toggleVehicleFeatured, toggleVehicleActive, uploadVehicleImage } from '../services/api'
+import { getVehicles, createVehicle, updateVehicle, deleteVehicle, toggleVehicleFeatured, toggleVehicleActive, uploadVehicleImage, deleteVehicleImage } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { Star, StarOff, Plus, Edit2, Trash2, X, Check, XCircle, Upload, Loader2 } from 'lucide-react'
 
@@ -34,6 +34,16 @@ function Vehicles() {
 
   const isOwner = user?.role === 'owner'
   const isWorker = user?.role === 'worker'
+
+  const DEMO_VEHICLE_IMAGE_RE = /^\/images\/vehicles\/car-\d+\.(jpe?g|png|webp|gif)$/i
+
+  const isDemoVehicleImage = (url = '') => (
+    typeof url === 'string' && DEMO_VEHICLE_IMAGE_RE.test(url)
+  )
+
+  const uniqueRealVehicleImages = (images = []) => Array.from(new Set(
+    images.filter((url) => url && !isDemoVehicleImage(url))
+  ))
 
   const fetchVehicles = async () => {
     try {
@@ -73,19 +83,18 @@ function Vehicles() {
 
     // No enviar previews base64; las fotos nuevas se suben por separado
     const { image_url, gallery_images, ...restData } = formData
+    const realGalleryImages = uniqueRealVehicleImages(Array.isArray(gallery_images) ? gallery_images : [])
     const data = {
       ...restData,
       year: parseInt(formData.year),
       price_per_day: parseFloat(formData.price_per_day),
       sort_order: parseInt(formData.sort_order) || 0,
       seats: parseInt(formData.seats) || 5,
-      gallery_images: Array.isArray(gallery_images)
-        ? gallery_images.filter((url) => url && !url.startsWith('data:'))
-        : []
+      gallery_images: realGalleryImages.filter((url) => !url.startsWith('data:'))
     }
 
     // Si image_url es una URL real (no base64), enviarla
-    if (image_url && !image_url.startsWith('data:')) {
+    if (image_url && !image_url.startsWith('data:') && !isDemoVehicleImage(image_url)) {
       data.image_url = image_url
     }
 
@@ -116,6 +125,10 @@ function Vehicles() {
   }
 
   const handleEdit = (vehicle) => {
+    const realGalleryImages = uniqueRealVehicleImages([
+      vehicle.image_url,
+      ...(Array.isArray(vehicle.gallery_images) ? vehicle.gallery_images : [])
+    ])
     setEditingVehicle(vehicle)
     setSelectedImageFiles([])
     setFormData({
@@ -125,8 +138,8 @@ function Vehicles() {
       price_per_day: vehicle.price_per_day,
       status: vehicle.status,
       category: vehicle.category || 'economico',
-      image_url: vehicle.image_url || '',
-      gallery_images: Array.isArray(vehicle.gallery_images) ? vehicle.gallery_images : [],
+      image_url: realGalleryImages[0] || '',
+      gallery_images: realGalleryImages,
       seats: vehicle.seats || 5,
       vehicle_type: vehicle.vehicle_type || vehicle.category || 'Económico',
       insurance_included: vehicle.insurance_included !== false,
@@ -141,17 +154,19 @@ function Vehicles() {
   const handleDelete = async (id) => {
     if (!isOwner) {
       alert('Solo el owner puede eliminar vehículos')
-      return
+      return false
     }
 
-    if (!confirm('¿Estás seguro de eliminar este vehículo?')) return
+    if (!confirm('¿Estás seguro de eliminar este vehículo?')) return false
 
     try {
       await deleteVehicle(id)
       await fetchVehicles()
+      return true
     } catch (err) {
       console.error('Error deleting vehicle:', err)
       alert(err.response?.data?.message || 'Error al eliminar el vehículo')
+      return false
     }
   }
 
@@ -260,23 +275,79 @@ function Vehicles() {
         e.target.value = ''
       }
     } else {
-      setSelectedImageFiles(filesToUse)
       const previews = await Promise.all(filesToUse.map((file) => new Promise((resolve) => {
         const reader = new FileReader()
         reader.onload = (event) => resolve(event.target.result)
         reader.readAsDataURL(file)
       })))
-      setFormData(prev => ({
-        ...prev,
-        image_url: previews[0] || '',
-        gallery_images: previews
-      }))
+
+      setSelectedImageFiles(prev => ([...prev, ...filesToUse].slice(0, 6)))
+      setFormData(prev => {
+        const nextGallery = uniqueRealVehicleImages([
+          ...(Array.isArray(prev.gallery_images) ? prev.gallery_images : []),
+          ...previews
+        ]).slice(0, 6)
+
+        return {
+          ...prev,
+          image_url: nextGallery[0] || '',
+          gallery_images: nextGallery
+        }
+      })
     }
+  }
+
+  const handleDeletePhoto = async (url, index) => {
+    if (!isOwner) {
+      alert('Solo el owner puede eliminar fotos')
+      return
+    }
+
+    if (!confirm('¿Eliminar solo esta foto del vehículo?')) return
+
+    if (editingVehicle && url && !url.startsWith('data:')) {
+      try {
+        const response = await deleteVehicleImage(editingVehicle.id, url)
+        const latestVehicle = response.data?.vehicle
+        const realGalleryImages = uniqueRealVehicleImages([
+          latestVehicle?.image_url,
+          ...(Array.isArray(latestVehicle?.gallery_images) ? latestVehicle.gallery_images : [])
+        ])
+
+        setFormData(prev => ({
+          ...prev,
+          image_url: realGalleryImages[0] || '',
+          gallery_images: realGalleryImages
+        }))
+        await fetchVehicles()
+        return
+      } catch (err) {
+        console.error('Error deleting photo:', err)
+        alert(err.response?.data?.message || 'Error al eliminar la foto')
+        return
+      }
+    }
+
+    setSelectedImageFiles(prev => prev.filter((_, fileIndex) => fileIndex !== index))
+    setFormData(prev => {
+      const nextGallery = (Array.isArray(prev.gallery_images) ? prev.gallery_images : [])
+        .filter((_, imageIndex) => imageIndex !== index)
+      return {
+        ...prev,
+        image_url: nextGallery[0] || '',
+        gallery_images: nextGallery
+      }
+    })
   }
 
   // Helper para normalizar URLs de imágenes
   const getVehicleImageUrl = (url) => {
     if (!url || url === '') return null
+    // Si es preview local antes de guardar, usarlo directamente.
+    // No convertir data:image/... a http://localhost:5001/data:image/...
+    if (url.startsWith('data:')) {
+      return url
+    }
     // Si ya es URL absoluta, retornarla directamente
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url
@@ -306,8 +377,11 @@ function Vehicles() {
   }
 
   const getDisplayVehicleImage = (vehicle) => {
-    const gallery = Array.isArray(vehicle?.gallery_images) ? vehicle.gallery_images : []
-    return getVehicleImageUrl(vehicle?.image_url || gallery[0]) || getFallbackVehicleImage(vehicle)
+    const gallery = uniqueRealVehicleImages([
+      vehicle?.image_url,
+      ...(Array.isArray(vehicle?.gallery_images) ? vehicle.gallery_images : [])
+    ])
+    return getVehicleImageUrl(gallery[0]) || getFallbackVehicleImage(vehicle)
   }
 
   const getStatusLabel = (status) => {
@@ -568,6 +642,16 @@ function Vehicles() {
                         <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-luxuryGold">
                           {index === 0 ? 'Principal' : `Foto ${index + 1}`}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePhoto(url, index)}
+                          disabled={!isOwner}
+                          aria-label={`Eliminar foto ${index + 1}`}
+                          title="Eliminar solo esta foto"
+                          className="absolute right-1 top-1 grid h-7 w-7 place-items-center rounded-full border border-red-400/40 bg-red-600/90 text-white shadow-lg transition hover:bg-red-500 disabled:opacity-50"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -623,7 +707,7 @@ function Vehicles() {
             </div>
           </div>
           
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-wrap items-center gap-2 pt-2">
             <button 
               type="submit" 
               disabled={isSubmitting}
@@ -638,6 +722,18 @@ function Vehicles() {
             >
               Cancelar
             </button>
+            {editingVehicle && isOwner && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const deleted = await handleDelete(editingVehicle.id)
+                  if (deleted) resetForm()
+                }}
+                className="rounded-lg border border-luxuryDanger/40 px-4 py-2 text-sm font-semibold text-luxuryDanger transition-colors hover:border-luxuryDanger hover:bg-luxuryDanger/10"
+              >
+                Eliminar coche
+              </button>
+            )}
           </div>
         </form>
       )}
@@ -689,9 +785,12 @@ function Vehicles() {
                 <span className="rounded-full bg-white/5 px-2 py-1">{vehicle.seats || 5} plazas</span>
                 <span className="rounded-full bg-white/5 px-2 py-1">{vehicle.vehicle_type || getCategoryLabel(vehicle.category)}</span>
                 <span className="rounded-full bg-white/5 px-2 py-1">{vehicle.insurance_included === false ? 'Seguro opcional' : 'Seguro incluido'}</span>
-                {vehicle.gallery_images?.length > 0 && (
-                  <span className="rounded-full bg-luxuryGold/10 px-2 py-1 text-luxuryGold">{vehicle.gallery_images.length} {vehicle.gallery_images.length === 1 ? 'foto' : 'fotos'}</span>
-                )}
+                {uniqueRealVehicleImages([vehicle.image_url, ...(Array.isArray(vehicle.gallery_images) ? vehicle.gallery_images : [])]).length > 0 && (() => {
+                  const photoCount = uniqueRealVehicleImages([vehicle.image_url, ...(Array.isArray(vehicle.gallery_images) ? vehicle.gallery_images : [])]).length
+                  return (
+                    <span className="rounded-full bg-luxuryGold/10 px-2 py-1 text-luxuryGold">{photoCount} {photoCount === 1 ? 'foto' : 'fotos'}</span>
+                  )
+                })()}
                 {vehicle.sort_order > 0 && (
                   <span className="rounded-full bg-white/5 px-2 py-1">Orden: {vehicle.sort_order}</span>
                 )}
